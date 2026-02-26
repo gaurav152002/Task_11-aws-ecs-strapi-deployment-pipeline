@@ -1,0 +1,131 @@
+name: Deploy Strapi to ECS (Task11)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: gaurav-strapi-task
+      ECS_CLUSTER: gaurav-task11-cluster
+      ECS_SERVICE: gaurav-task11-service
+      CODEDEPLOY_APP: gaurav-task11-ecs-app
+      CODEDEPLOY_GROUP: gaurav-task11-ecs-dg
+      CONTAINER_NAME: strapi
+
+    steps:
+
+    #############################################
+    # Checkout Code
+    #############################################
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    #############################################
+    # Configure AWS Credentials
+    #############################################
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    #############################################
+    # Login to Amazon ECR
+    #############################################
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    #############################################
+    # Build Docker Image
+    #############################################
+    - name: Build Docker Image
+      run: |
+        IMAGE_TAG=${GITHUB_SHA}
+        docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./strapi-app
+
+    #############################################
+    # Tag Image for ECR
+    #############################################
+    - name: Tag Image
+      run: |
+        IMAGE_TAG=${GITHUB_SHA}
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG 811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+    #############################################
+    # Push Image to ECR
+    #############################################
+    - name: Push Image
+      run: |
+        IMAGE_TAG=${GITHUB_SHA}
+        docker push 811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+    #############################################
+    # Get Current Task Definition
+    #############################################
+    - name: Download Current Task Definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition gaurav-task11-task \
+          --query taskDefinition > task-def.json
+
+    #############################################
+    # Update Image in Task Definition
+    #############################################
+    - name: Update Task Definition Image
+      run: |
+        IMAGE_TAG=${GITHUB_SHA}
+        IMAGE_URI=811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+        cat task-def.json | jq \
+          --arg IMAGE "$IMAGE_URI" \
+          '.containerDefinitions[0].image = $IMAGE 
+           | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
+          > new-task-def.json
+
+    #############################################
+    # Register New Task Definition Revision
+    #############################################
+    - name: Register New Task Definition
+      id: register-task
+      run: |
+        NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+          --cli-input-json file://new-task-def.json \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+        echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+
+    #############################################
+    # Trigger CodeDeploy Deployment
+    #############################################
+    - name: Trigger CodeDeploy Deployment
+      run: |
+        aws deploy create-deployment \
+          --application-name $CODEDEPLOY_APP \
+          --deployment-group-name $CODEDEPLOY_GROUP \
+          --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
+          --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"{
+            \\\"version\\\":1,
+            \\\"Resources\\\":[
+              {
+                \\\"TargetService\\\":{
+                  \\\"Type\\\":\\\"AWS::ECS::Service\\\",
+                  \\\"Properties\\\":{
+                    \\\"TaskDefinition\\\":\\\"$NEW_TASK_DEF_ARN\\\",
+                    \\\"LoadBalancerInfo\\\":{
+                      \\\"ContainerName\\\":\\\"$CONTAINER_NAME\\\",
+                      \\\"ContainerPort\\\":1337
+                    }
+                  }
+                }
+              }
+            ]
+          }\"}}"
