@@ -7,7 +7,7 @@ resource "aws_db_subnet_group" "this" {
   subnet_ids = var.private_subnet_ids
 
   tags = {
-    Name = "gaurav-task11-db-subnet-group"
+    Name    = "gaurav-task11-db-subnet-group"
     Project = "gaurav-task11"
   }
 }
@@ -17,24 +17,23 @@ resource "aws_db_subnet_group" "this" {
 #############################################
 
 resource "aws_db_instance" "this" {
-  identifier          = "gaurav-task11-postgres"
-  engine              = "postgres"
-  engine_version      = "15"
-  instance_class      = "db.t3.micro"
-  allocated_storage   = 20
+  identifier              = "gaurav-task11-postgres"
+  engine                  = "postgres"
+  engine_version          = "15"
+  instance_class          = "db.t3.micro"
+  allocated_storage       = 20
 
-  db_name  = "strapi"
-  username = "strapi"
-  password = "Strapi12345"   # Hardcoded as requested
+  db_name     = var.db_name
+  username    = var.db_username
+  password    = var.db_password
 
-  publicly_accessible = false
-  skip_final_snapshot = true
-
+  publicly_accessible    = false
+  skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.rds_sg_id]
 
   tags = {
-    Name = "gaurav-task11-rds"
+    Name    = "gaurav-task11-rds"
     Project = "gaurav-task11"
   }
 }

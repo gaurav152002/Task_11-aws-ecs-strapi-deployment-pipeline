@@ -1,60 +1,81 @@
 #############################################
-# NETWORK MODULE
+# NETWORK MODULE CALL
 #############################################
 
 module "network" {
   source = "./modules/network"
 
-  vpc_cidr              = "10.0.0.0/16"
-  public_subnet_1_cidr  = "10.0.1.0/24"
-  public_subnet_2_cidr  = "10.0.2.0/24"
-  private_subnet_1_cidr = "10.0.3.0/24"
-  private_subnet_2_cidr = "10.0.4.0/24"
+  vpc_cidr              = var.vpc_cidr
+  public_subnet_1_cidr  = var.public_subnet_1_cidr
+  public_subnet_2_cidr  = var.public_subnet_2_cidr
+  private_subnet_1_cidr = var.private_subnet_1_cidr
+  private_subnet_2_cidr = var.private_subnet_2_cidr
 }
 
 #############################################
-# RDS MODULE
+# SECURITY GROUP MODULE CALL
+#############################################
+
+module "security_groups" {
+  source = "./modules/security-groups"
+  vpc_id = module.network.vpc_id
+}
+
+#############################################
+# RDS MODULE CALL
 #############################################
 
 module "rds" {
-  source             = "./modules/rds"
+  source = "./modules/rds"
+
   private_subnet_ids = module.network.private_subnet_ids
-  rds_sg_id          = module.network.rds_sg_id
+  rds_sg_id          = module.security_groups.rds_sg_id
+
+  db_password = "Strapi12345"
 }
 
 #############################################
-# ALB MODULE
+# ALB MODULE CALL
 #############################################
 
 module "alb" {
-  source            = "./modules/alb"
+  source = "./modules/alb"
+
   vpc_id            = module.network.vpc_id
   public_subnet_ids = module.network.public_subnet_ids
-  alb_sg_id         = module.network.alb_sg_id
+  alb_sg_id         = module.security_groups.alb_sg_id
 }
 
 #############################################
-# ECS MODULE
+# ECS MODULE CALL
 #############################################
 
 module "ecs" {
-  source            = "./modules/ecs"
+  source = "./modules/ecs"
+
+  execution_role_arn = "arn:aws:iam::811738710312:role/ecs_fargate_taskRole"
+
   public_subnet_ids = module.network.public_subnet_ids
-  ecs_sg_id         = module.network.ecs_sg_id
-  rds_endpoint      = module.rds.rds_endpoint
-  blue_tg_arn       = module.alb.blue_tg_arn
+  ecs_sg_id         = module.security_groups.ecs_sg_id
+
+  blue_tg_arn = module.alb.blue_tg_arn
 
   ecr_image_url = "811738710312.dkr.ecr.us-east-1.amazonaws.com/gaurav-strapi-task:latest"
+  rds_endpoint  = module.rds.rds_endpoint
 }
 
 #############################################
-# CODEDEPLOY MODULE
+# CODEDEPLOY MODULE CALL
 #############################################
 
-# module "codedeploy" {
-#  source        = "./modules/codedeploy"
-#  cluster_name  = module.ecs.cluster_name
-#  service_name  = module.ecs.service_name
-#  blue_tg_name  = module.alb.blue_tg_name
-#  green_tg_name = module.alb.green_tg_name
-#  listener_arn  = module.alb.listener_arn}
+module "codedeploy" {
+  source = "./modules/codedeploy"
+
+  cluster_name = module.ecs.cluster_name
+  service_name = module.ecs.service_name
+
+  blue_tg_name  = module.alb.blue_tg_name
+  green_tg_name = module.alb.green_tg_name
+
+  listener_arn = module.alb.listener_arn
+}

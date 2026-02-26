@@ -4,18 +4,19 @@
 
 resource "aws_lb" "this" {
   name               = "gaurav-task11-alb"
+  internal           = false
   load_balancer_type = "application"
   security_groups    = [var.alb_sg_id]
   subnets            = var.public_subnet_ids
 
   tags = {
-    Name = "gaurav-task11-alb"
+    Name    = "gaurav-task11-alb"
     Project = "gaurav-task11"
   }
 }
 
 #############################################
-# BLUE Target Group
+# Target Group - BLUE
 #############################################
 
 resource "aws_lb_target_group" "blue" {
@@ -25,16 +26,18 @@ resource "aws_lb_target_group" "blue" {
   vpc_id      = var.vpc_id
   target_type = "ip"
 
-  health_check { path = "/" }
+  health_check {
+    path = "/"
+  }
 
   tags = {
-    Name = "gaurav-task11-blue"
+    Name    = "gaurav-task11-blue"
     Project = "gaurav-task11"
   }
 }
 
 #############################################
-# GREEN Target Group
+# Target Group - GREEN
 #############################################
 
 resource "aws_lb_target_group" "green" {
@@ -44,16 +47,18 @@ resource "aws_lb_target_group" "green" {
   vpc_id      = var.vpc_id
   target_type = "ip"
 
-  health_check { path = "/" }
+  health_check {
+    path = "/"
+  }
 
   tags = {
-    Name = "gaurav-task11-green"
+    Name    = "gaurav-task11-green"
     Project = "gaurav-task11"
   }
 }
 
 #############################################
-# Listener (initially forwards to BLUE)
+# Listener (Initially points to BLUE)
 #############################################
 
 resource "aws_lb_listener" "http" {

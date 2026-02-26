@@ -1,4 +1,4 @@
-name: 1 - Create Infrastructure
+name: Create Task11 Infrastructure
 
 on:
   workflow_dispatch:
@@ -7,24 +7,53 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    defaults:
+      run:
+        working-directory: terraform
 
-      - name: Configure AWS
+    steps:
+      #############################################
+      # Checkout Code
+      #############################################
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      #############################################
+      # Setup Terraform
+      #############################################
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      #############################################
+      # Configure AWS Credentials
+      #############################################
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
+      #############################################
+      # Terraform Init (uses S3 backend)
+      #############################################
       - name: Terraform Init
-        working-directory: terraform
         run: terraform init
 
+      #############################################
+      # Terraform Validate
+      #############################################
+      - name: Terraform Validate
+        run: terraform validate
+
+      #############################################
+      # Terraform Plan
+      #############################################
+      - name: Terraform Plan
+        run: terraform plan
+
+      #############################################
+      # Terraform Apply
+      #############################################
       - name: Terraform Apply
-        working-directory: terraform
         run: terraform apply -auto-approve

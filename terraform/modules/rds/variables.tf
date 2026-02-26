@@ -1,17 +1,22 @@
-#############################################
-# Private Subnet IDs
-#############################################
-
 variable "private_subnet_ids" {
-  type        = list(string)
-  description = "Private subnet IDs for RDS"
+  type = list(string)
 }
 
-#############################################
-# RDS Security Group
-#############################################
-
 variable "rds_sg_id" {
-  type        = string
-  description = "Security group for RDS"
+  type = string
+}
+
+variable "db_name" {
+  type    = string
+  default = "strapi"
+}
+
+variable "db_username" {
+  type    = string
+  default = "strapi"
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
 }
