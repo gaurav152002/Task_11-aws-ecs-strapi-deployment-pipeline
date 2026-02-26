@@ -51,11 +51,10 @@ module "ecs" {
 # CODEDEPLOY MODULE
 #############################################
 
-module "codedeploy" {
-  source        = "./modules/codedeploy"
-  cluster_name  = module.ecs.cluster_name
-  service_name  = module.ecs.service_name
-  blue_tg_name  = module.alb.blue_tg_name
-  green_tg_name = module.alb.green_tg_name
-  listener_arn  = module.alb.listener_arn
-}
+# module "codedeploy" {
+#  source        = "./modules/codedeploy"
+#  cluster_name  = module.ecs.cluster_name
+#  service_name  = module.ecs.service_name
+#  blue_tg_name  = module.alb.blue_tg_name
+#  green_tg_name = module.alb.green_tg_name
+#  listener_arn  = module.alb.listener_arn}

@@ -105,9 +105,7 @@ resource "aws_ecs_service" "this" {
   # Enable Blue/Green via CodeDeploy
   ###################################################
 
-  deployment_controller {
-    type = "CODE_DEPLOY"
-  }
+  #deployment_controller { type = "CODE_DEPLOY"}
 
   ###################################################
   # Networking
