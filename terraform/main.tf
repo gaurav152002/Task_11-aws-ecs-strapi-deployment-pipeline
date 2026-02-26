@@ -1,5 +1,5 @@
 #############################################
-# NETWORK MODULE CALL
+# VPC MODULE CALL
 #############################################
 
 module "vpc" {
@@ -18,7 +18,7 @@ module "vpc" {
 
 module "security_groups" {
   source = "./modules/security-groups"
-  vpc_id = module.network.vpc_id
+  vpc_id = module.vpc.vpc_id
 }
 
 #############################################
@@ -28,10 +28,9 @@ module "security_groups" {
 module "rds" {
   source = "./modules/rds"
 
-  private_subnet_ids = module.network.private_subnet_ids
+  private_subnet_ids = module.vpc.private_subnet_ids
   rds_sg_id          = module.security_groups.rds_sg_id
-
-  db_password = "Strapi12345"
+  db_password        = "Strapi12345"
 }
 
 #############################################
@@ -41,8 +40,8 @@ module "rds" {
 module "alb" {
   source = "./modules/alb"
 
-  vpc_id            = module.network.vpc_id
-  public_subnet_ids = module.network.public_subnet_ids
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
   alb_sg_id         = module.security_groups.alb_sg_id
 }
 
@@ -55,7 +54,7 @@ module "ecs" {
 
   execution_role_arn = "arn:aws:iam::811738710312:role/ecs_fargate_taskRole"
 
-  public_subnet_ids = module.network.public_subnet_ids
+  public_subnet_ids = module.vpc.public_subnet_ids
   ecs_sg_id         = module.security_groups.ecs_sg_id
 
   blue_tg_arn = module.alb.blue_tg_arn
