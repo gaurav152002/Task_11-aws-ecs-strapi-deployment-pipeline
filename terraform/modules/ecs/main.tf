@@ -24,7 +24,7 @@ resource "aws_ecs_task_definition" "this" {
   memory = "1024"
 
   ###################################################
-  # Hardcoded IAM roles (org restriction)
+  # Hardcoded IAM roles (Org restriction)
   ###################################################
 
   execution_role_arn = "arn:aws:iam::811738710312:role/ecs_fargate_taskRole"
@@ -36,9 +36,8 @@ resource "aws_ecs_task_definition" "this" {
 
   container_definitions = jsonencode([
     {
-      name  = "strapi"
-      image = var.ecr_image_url  # Initially :latest, updated via GitHub Actions
-
+      name      = "strapi"
+      image     = var.ecr_image_url
       essential = true
 
       portMappings = [
@@ -50,14 +49,15 @@ resource "aws_ecs_task_definition" "this" {
       ]
 
       ###################################################
-      # Environment Variables (CRITICAL FIX)
+      # Environment Variables (FINAL WORKING VERSION)
       ###################################################
 
       environment = [
-        # Production Mode
+
+        # Production mode
         { name = "NODE_ENV", value = "production" },
 
-        # REQUIRED → prevents sqlite fallback crash
+        # Required to prevent sqlite fallback
         { name = "DATABASE_CLIENT", value = "postgres" },
 
         # RDS Configuration
@@ -66,15 +66,18 @@ resource "aws_ecs_task_definition" "this" {
         { name = "DATABASE_NAME", value = "strapi" },
         { name = "DATABASE_USERNAME", value = "strapi" },
         { name = "DATABASE_PASSWORD", value = "Strapi12345" },
-        { name = "DATABASE_SSL", value = "false" },
 
-        # Strapi Production Secrets
+        # REQUIRED for your RDS (SSL enforced)
+        { name = "DATABASE_SSL", value = "true" },
+        { name = "DATABASE_SSL_REJECT_UNAUTHORIZED", value = "false" },
+
+        # Strapi production secrets
         { name = "APP_KEYS", value = "key1,key2,key3,key4" },
         { name = "JWT_SECRET", value = "supersecretjwt" },
         { name = "API_TOKEN_SALT", value = "apisalt" },
         { name = "ADMIN_JWT_SECRET", value = "adminsecret" },
 
-        # Server Binding
+        # Server binding
         { name = "HOST", value = "0.0.0.0" },
         { name = "PORT", value = "1337" }
       ]
@@ -117,7 +120,7 @@ resource "aws_ecs_service" "this" {
   }
 
   ###################################################
-  # Attach Blue Target Group Initially
+  # Attach BLUE target group initially
   ###################################################
 
   load_balancer {
@@ -127,7 +130,7 @@ resource "aws_ecs_service" "this" {
   }
 
   ###################################################
-  # Prevent Terraform From Overwriting New Revisions
+  # Prevent Terraform from overriding new revisions
   ###################################################
 
   lifecycle {
