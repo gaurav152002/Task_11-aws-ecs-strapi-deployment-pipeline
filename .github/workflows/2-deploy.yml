@@ -11,9 +11,9 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: 811738710312
       ECR_REPOSITORY: gaurav-strapi-task
-      ECS_CLUSTER: gaurav-task11-cluster
-      ECS_SERVICE: gaurav-task11-service
+      ECS_TASK_FAMILY: gaurav-task11-task
       CODEDEPLOY_APP: gaurav-task11-ecs-app
       CODEDEPLOY_GROUP: gaurav-task11-ecs-dg
       CONTAINER_NAME: strapi
@@ -40,7 +40,6 @@ jobs:
     # Login to Amazon ECR
     #############################################
     - name: Login to Amazon ECR
-      id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
     #############################################
@@ -57,23 +56,24 @@ jobs:
     - name: Tag Image
       run: |
         IMAGE_TAG=${GITHUB_SHA}
-        docker tag $ECR_REPOSITORY:$IMAGE_TAG 811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
     #############################################
     # Push Image to ECR
     #############################################
-    - name: Push Image
+    - name: Push Image to ECR
       run: |
         IMAGE_TAG=${GITHUB_SHA}
-        docker push 811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
     #############################################
-    # Get Current Task Definition
+    # Download Current Task Definition
     #############################################
     - name: Download Current Task Definition
       run: |
         aws ecs describe-task-definition \
-          --task-definition gaurav-task11-task \
+          --task-definition $ECS_TASK_FAMILY \
           --query taskDefinition > task-def.json
 
     #############################################
@@ -82,7 +82,7 @@ jobs:
     - name: Update Task Definition Image
       run: |
         IMAGE_TAG=${GITHUB_SHA}
-        IMAGE_URI=811738710312.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+        IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
         cat task-def.json | jq \
           --arg IMAGE "$IMAGE_URI" \
@@ -104,6 +104,31 @@ jobs:
         echo "NEW_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
     #############################################
+    # Create AppSpec File Dynamically
+    #############################################
+    - name: Create AppSpec File
+      run: |
+        cat <<EOF > appspec-temp.json
+        {
+          "version": 1,
+          "Resources": [
+            {
+              "TargetService": {
+                "Type": "AWS::ECS::Service",
+                "Properties": {
+                  "TaskDefinition": "${NEW_TASK_DEF_ARN}",
+                  "LoadBalancerInfo": {
+                    "ContainerName": "${CONTAINER_NAME}",
+                    "ContainerPort": 1337
+                  }
+                }
+              }
+            }
+          ]
+        }
+        EOF
+
+    #############################################
     # Trigger CodeDeploy Deployment
     #############################################
     - name: Trigger CodeDeploy Deployment
@@ -112,20 +137,4 @@ jobs:
           --application-name $CODEDEPLOY_APP \
           --deployment-group-name $CODEDEPLOY_GROUP \
           --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
-          --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":\"{
-            \\\"version\\\":1,
-            \\\"Resources\\\":[
-              {
-                \\\"TargetService\\\":{
-                  \\\"Type\\\":\\\"AWS::ECS::Service\\\",
-                  \\\"Properties\\\":{
-                    \\\"TaskDefinition\\\":\\\"$NEW_TASK_DEF_ARN\\\",
-                    \\\"LoadBalancerInfo\\\":{
-                      \\\"ContainerName\\\":\\\"$CONTAINER_NAME\\\",
-                      \\\"ContainerPort\\\":1337
-                    }
-                  }
-                }
-              }
-            ]
-          }\"}}"
+          --revision revisionType=AppSpecContent,appSpecContent={file://appspec-temp.json}
