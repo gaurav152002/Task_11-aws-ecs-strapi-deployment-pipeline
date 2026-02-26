@@ -27,8 +27,13 @@ resource "aws_lb_target_group" "blue" {
   target_type = "ip"
 
   health_check {
-    path = "/"
-  }
+  path                = "/admin"        # Strapi admin path
+  matcher             = "200-399"       # Allow redirects
+  healthy_threshold   = 2
+  unhealthy_threshold = 5
+  timeout             = 5
+  interval            = 30
+}
 
   tags = {
     Name    = "gaurav-task11-blue"
@@ -47,9 +52,14 @@ resource "aws_lb_target_group" "green" {
   vpc_id      = var.vpc_id
   target_type = "ip"
 
-  health_check {
-    path = "/"
-  }
+ health_check {
+  path                = "/admin"        # Strapi admin path
+  matcher             = "200-399"       # Allow redirects
+  healthy_threshold   = 2
+  unhealthy_threshold = 5
+  timeout             = 5
+  interval            = 30
+ }
 
   tags = {
     Name    = "gaurav-task11-green"
